@@ -18,6 +18,8 @@ public:
     Dialog(QWidget *parent = nullptr);
     ~Dialog();
 private:
+    template <typename Color>
+        void setTimeLineTextColor(const Color &c);
     QLabel  *timeLine;
     QTimeEdit *timeEdit;
     QTime _time;
@@ -26,6 +28,7 @@ private:
     QTimer *timeLineUpdateTimer;
     qint64 timeEditValue;
     qint64 timeLeft;
+    bool isRunning;
 private slots:
     void timeLineUpdate();
     void startButtonPushed();

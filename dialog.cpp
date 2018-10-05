@@ -1,9 +1,13 @@
 #include "dialog.h"
 
 #include<QChar>
+#include <QPalette>
+#include <QMessageBox>
+
+#include <QDebug>
 
 Dialog::Dialog(QWidget *parent)
-    : QDialog(parent), timeEditValue(0), timeLeft(0)
+    : QDialog(parent), timeEditValue(0), timeLeft(0), isRunning(false)
 {
     timeEdit = new QTimeEdit(INITIAL_TIME, this);
     timeEdit->setDisplayFormat("hh:mm:ss");
@@ -30,9 +34,24 @@ Dialog::Dialog(QWidget *parent)
 
 void Dialog::startButtonPushed()
 {
-    _time.start();
-    timeEditValue = timeEdit->time().msec();
-    timeLineUpdateTimer->start(20);
+    if(!isRunning){
+        if (timeLeft == 0) {
+            timeLeft = timeEdit->time().hour() * 3600;
+            timeLeft += timeEdit->time().minute() * 60;
+            timeLeft += timeEdit->time().second();
+        }
+        _time.start();
+        timeLineUpdateTimer->start(20);
+        setTimeLineTextColor(Qt::black);
+        startButton->setText("suspend");
+        isRunning = true;
+    } else {
+        timeLineUpdateTimer->stop();
+        timeLeft -= _time.restart()/1000;
+        startButton->setText("remuse");
+        isRunning = false;
+        setTimeLineTextColor(Qt::darkYellow);
+      }
 }
 
 void Dialog::resetButtonPushed()
@@ -41,14 +60,16 @@ void Dialog::resetButtonPushed()
     timeEdit->setTime(INITIAL_TIME);
     timeEditValue = 0;
     timeLeft = 0;
+    isRunning = false;
     startButton->setText("start");
     timeLine->setText(INITIAL_TIME_LINE);
+    setTimeLineTextColor(Qt::black);
 }
 
 void Dialog::timeLineUpdate()
 {
-    qint64 elapsed = _time.elapsed();
-    qint64 differ = (timeEditValue - elapsed)/1000; // in seconds
+    qint64 elapsed = _time.elapsed() / 1000; // in seconds
+    qint64 differ = timeLeft - elapsed;
     qint64 hours = differ / 60 / 60;
     qint64 minutes = (differ / 60) - (hours * 60);
     qint64 seconds = differ - (minutes * 60) - (hours * 3600);
@@ -57,6 +78,28 @@ void Dialog::timeLineUpdate()
                     .arg(minutes, 2, 10, QChar('0'))
                     .arg(seconds, 2, 10, QChar('0'));
     timeLine->setText(res);
+
+    if (differ <= 0) {
+        timeLineUpdateTimer->stop();
+        timeLine->setText(INITIAL_TIME_LINE);
+        timeLeft = 0;
+        isRunning = false;
+        startButton->setText("start");
+
+        QMessageBox msg;
+        msg.setText("time expired");
+        msg.exec();
+    } else if (differ <= 5) {
+        setTimeLineTextColor(Qt::darkRed);
+    }
+}
+
+template <typename Color>
+    void Dialog::setTimeLineTextColor(const Color &c)
+{
+    QPalette palette;
+    palette.setColor(QPalette::WindowText, c);
+    timeLine->setPalette(palette);
 }
 
 Dialog::~Dialog()
